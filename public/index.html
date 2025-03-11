@@ -11,7 +11,7 @@
     <div id="content-container" class="w-screen h-screen relative">
 
         <!-- Logo container -->
-        <div id="logo-container" class="absolute inset-0 flex justify-center items-center transition-opacity duration-500 opacity-100">
+        <div id="logo-container" class="absolute inset-0 flex justify-center items-center transition-opacity duration-500 opacity-100 p-8">
             <img 
                 src="/images/storylogo.png" 
                 alt="Story Logo" 
@@ -31,7 +31,10 @@
     </div>
 
     <script>
-        const ws = new WebSocket('ws://' + window.location.host);
+        // Determine WebSocket protocol based on page protocol
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        console.log('wsProtocol', wsProtocol);
+        const ws = new WebSocket(wsProtocol + window.location.host);
         const messageDisplay = document.getElementById('message-display');
         const logoContainer = document.getElementById('logo-container');
         let messageTimeout;

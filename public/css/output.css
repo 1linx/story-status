@@ -740,19 +740,14 @@ video {
   line-height: 2rem;
 }
 
-.text-8xl {
-  font-size: 6rem;
+.text-9xl {
+  font-size: 8rem;
   line-height: 1;
 }
 
 .text-sm {
   font-size: 0.875rem;
   line-height: 1.25rem;
-}
-
-.text-9xl {
-  font-size: 8rem;
-  line-height: 1;
 }
 
 .font-bold {
@@ -827,6 +822,8 @@ video {
 @tailwind effects;
 
 @tailwind typography;
+
+@tailwind spacing;
 
 .hind-madurai-light {
   font-family: "Hind Madurai", sans-serif;

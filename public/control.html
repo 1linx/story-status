@@ -29,7 +29,9 @@
     </div>
 
     <script>
-        const ws = new WebSocket('ws://' + window.location.host);
+        // Determine WebSocket protocol based on page protocol
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const ws = new WebSocket(wsProtocol + window.location.host);
         const input = document.getElementById('message-input');
         const status = document.getElementById('status');
 
