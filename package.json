@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.1"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./public/css/style.css -o ./public/css/output.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

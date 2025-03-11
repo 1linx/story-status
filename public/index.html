@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Display Screen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Madurai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/css/output.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex justify-center items-center min-h-screen hind-madurai-regular">
+    <div id="message-display" class="text-4xl p-8 rounded-lg transition-all duration-300 max-w-2xl text-center">
+        Waiting for messages...
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://' + window.location.host);
+        const messageDisplay = document.getElementById('message-display');
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'message') {
+                    messageDisplay.textContent = data.content;
+                    // Add animation class
+                    messageDisplay.classList.add('scale-105');
+                    setTimeout(() => {
+                        messageDisplay.classList.remove('scale-105');
+                    }, 200);
+                }
+            } catch (e) {
+                console.error('Error parsing message:', e);
+            }
+        };
+
+        ws.onclose = () => {
+            messageDisplay.textContent = 'Connection closed';
+            messageDisplay.classList.add('bg-red-100', 'text-red-600');
+        };
+
+        ws.onerror = (error) => {
+            messageDisplay.textContent = 'Connection error';
+            messageDisplay.classList.add('bg-red-100', 'text-red-600');
+            console.error('WebSocket error:', error);
+        };
+    </script>
+</body>
+</html> 

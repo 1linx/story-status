@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Control Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Madurai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/css/output.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800">Control Panel</h2>
+        <div class="space-y-4">
+            <input 
+                type="text" 
+                id="message-input" 
+                placeholder="Enter message" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+            <button 
+                onclick="sendMessage()" 
+                class="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors duration-200"
+            >
+                Send Message
+            </button>
+        </div>
+
+        <div id="status" class="mt-4 text-sm text-gray-600"></div>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://' + window.location.host);
+        const input = document.getElementById('message-input');
+        const status = document.getElementById('status');
+
+        function sendMessage() {
+            const message = {
+                type: 'message',
+                content: input.value
+            };
+            ws.send(JSON.stringify(message));
+            
+            // Show status message
+            status.textContent = 'Message sent!';
+            status.classList.add('text-green-600');
+            setTimeout(() => {
+                status.textContent = '';
+            }, 2000);
+            
+            input.value = '';
+        }
+
+        // Allow sending with Enter key
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        ws.onclose = () => {
+            status.textContent = 'Connection closed';
+            status.classList.add('text-red-600');
+        };
+
+        ws.onerror = () => {
+            status.textContent = 'Connection error';
+            status.classList.add('text-red-600');
+        };
+    </script>
+</body>
+</html> 

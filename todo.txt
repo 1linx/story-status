@@ -1,0 +1,6 @@
+default background logo
+timed messages
+image support
+animated gifs
+animated text (marquee)
+ip lock the control page
