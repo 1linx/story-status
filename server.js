@@ -5,15 +5,32 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
+const ipAuth = require('./middleware/ipAuth');
 
 const app = express();
-const port = process.env.PORT || 3030;
+const port = process.env.PORT || 3000;
 
 // Get timeout from env or use default (30 seconds)
 const MESSAGE_TIMEOUT_MS = process.env.MESSAGE_TIMEOUT_MS || 30000;
 
-// Serve static files from public directory
-app.use(express.static(path.join(__dirname, 'public')));
+// Enable trust proxy if behind a reverse proxy
+app.set('trust proxy', true);
+
+// Serve static files from public directory, except control.html
+app.use(express.static(path.join(__dirname, 'public'), {
+    index: 'index.html',
+    // Exclude control.html from direct access
+    setHeaders: (res, path) => {
+        if (path.endsWith('control.html')) {
+            res.status(404).send('Not Found');
+        }
+    }
+}));
+
+// Special route for control panel with IP authentication
+app.get('/control', ipAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'control.html'));
+});
 
 let server;
 

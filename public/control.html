@@ -10,7 +10,10 @@
 <body class="bg-gray-50 p-8">
     <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
         <h2 class="text-2xl font-bold mb-6 text-gray-800">Control Panel</h2>
-        <div class="space-y-4">
+        <div id="auth-error" class="hidden mb-4 p-4 bg-red-100 text-red-700 rounded-md">
+            Access Denied
+        </div>
+        <div id="control-panel" class="space-y-4">
             <input 
                 type="text" 
                 id="message-input" 
@@ -24,7 +27,6 @@
                 Send Message
             </button>
         </div>
-
         <div id="status" class="mt-4 text-sm text-gray-600"></div>
     </div>
 
@@ -34,6 +36,19 @@
         const ws = new WebSocket(wsProtocol + window.location.host);
         const input = document.getElementById('message-input');
         const status = document.getElementById('status');
+        const authError = document.getElementById('auth-error');
+        const controlPanel = document.getElementById('control-panel');
+
+        ws.onopen = () => {
+            console.log('Connection opened');
+            authError.classList.add('hidden');
+            controlPanel.classList.remove('hidden');
+        };
+
+        ws.onerror = () => {
+            authError.classList.remove('hidden');
+            controlPanel.classList.add('hidden');
+        };
 
         function sendMessage() {
             const message = {
@@ -61,11 +76,6 @@
 
         ws.onclose = () => {
             status.textContent = 'Connection closed';
-            status.classList.add('text-red-600');
-        };
-
-        ws.onerror = () => {
-            status.textContent = 'Connection error';
             status.classList.add('text-red-600');
         };
     </script>
