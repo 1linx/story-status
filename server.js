@@ -1,9 +1,13 @@
+require('dotenv').config();
 const WebSocket = require('ws');
 const express = require('express');
 const path = require('path');
 
 const app = express();
 const port = 3000;
+
+// Get timeout from env or use default (30 seconds)
+const MESSAGE_TIMEOUT_MS = process.env.MESSAGE_TIMEOUT_MS || 30000;
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -26,10 +30,10 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws) => {
     console.log('New client connected');
 
-    // Send welcome message
+    // Send welcome message and config
     ws.send(JSON.stringify({
-        type: 'message',
-        content: 'Welcome to the display screen!'
+        type: 'config',
+        messageTimeoutMs: MESSAGE_TIMEOUT_MS
     }));
 
     // Handle incoming messages

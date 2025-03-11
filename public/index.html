@@ -7,25 +7,83 @@
     <link href="https://fonts.googleapis.com/css2?family=Hind+Madurai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="/css/output.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 flex justify-center items-center min-h-screen hind-madurai-regular">
-    <div id="message-display" class="text-4xl p-8 rounded-lg transition-all duration-300 max-w-2xl text-center">
-        Waiting for messages...
+<body class="bg-white flex justify-center items-center min-h-screen m-0 p-0">
+    <div id="content-container" class="w-screen h-screen relative">
+
+        <!-- Logo container -->
+        <div id="logo-container" class="absolute inset-0 flex justify-center items-center transition-opacity duration-500 opacity-100">
+            <img 
+                src="/images/storylogo.png" 
+                alt="Story Logo" 
+                class="max-h-screen max-w-screen object-contain"
+            >
+        </div>
+
+        <!-- Message container -->
+        <div 
+            id="message-display" 
+            class="absolute inset-0 flex justify-center items-center opacity-0 transition-opacity duration-500"
+        >
+            <div class="text-9xl p-8 bg-white/90 backdrop-blur-sm rounded-lg max-w-2xl text-center">
+                Waiting for messages...
+            </div>
+        </div>
     </div>
 
     <script>
         const ws = new WebSocket('ws://' + window.location.host);
         const messageDisplay = document.getElementById('message-display');
+        const logoContainer = document.getElementById('logo-container');
+        let messageTimeout;
+        let messageTimeoutMs = 30000; // default value
+
+        function showLogo() {
+            logoContainer.classList.remove('opacity-0');
+            messageDisplay.classList.add('opacity-0');
+        }
+
+        function hideLogo() {
+            console.log(logoContainer); 
+            logoContainer.classList.add('opacity-0');
+            logoContainer.classList.remove('opacity-100');
+            messageDisplay.classList.remove('opacity-0');
+        }
+
+        function showMessage() {
+            logoContainer.classList.add('opacity-0');
+            messageDisplay.classList.remove('opacity-0');
+        }
+
+        // Show logo by default
+        showLogo();
 
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                if (data.type === 'message') {
-                    messageDisplay.textContent = data.content;
-                    // Add animation class
-                    messageDisplay.classList.add('scale-105');
-                    setTimeout(() => {
-                        messageDisplay.classList.remove('scale-105');
-                    }, 200);
+                if (data.type === 'config') {
+                    // Store the configured timeout value
+                    messageTimeoutMs = parseInt(data.messageTimeoutMs);
+                } else if (data.type === 'message') {
+                    // Hide the logo
+                    console.log('Hiding logo'); 
+                    hideLogo();
+
+                    // Clear any existing timeout
+                    if (messageTimeout) {
+                        clearTimeout(messageTimeout);
+                    }
+
+                    // Update and show the message
+                    const messageElement = messageDisplay.querySelector('div');
+                    messageElement.textContent = data.content;
+                    showMessage();
+
+                    console.log('messageTimeoutMs', messageTimeoutMs);
+
+                    // Set timeout to revert to logo after configured time
+                    messageTimeout = setTimeout(() => {
+                        showLogo();
+                    }, messageTimeoutMs);
                 }
             } catch (e) {
                 console.error('Error parsing message:', e);
@@ -33,13 +91,17 @@
         };
 
         ws.onclose = () => {
-            messageDisplay.textContent = 'Connection closed';
-            messageDisplay.classList.add('bg-red-100', 'text-red-600');
+            const messageElement = messageDisplay.querySelector('div');
+            messageElement.textContent = 'Connection closed';
+            messageElement.classList.add('bg-red-100', 'text-red-600');
+            showMessage();
         };
 
         ws.onerror = (error) => {
-            messageDisplay.textContent = 'Connection error';
-            messageDisplay.classList.add('bg-red-100', 'text-red-600');
+            const messageElement = messageDisplay.querySelector('div');
+            messageElement.textContent = 'Connection error';
+            messageElement.classList.add('bg-red-100', 'text-red-600');
+            showMessage();
             console.error('WebSocket error:', error);
         };
     </script>
