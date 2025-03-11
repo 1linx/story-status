@@ -28,6 +28,18 @@
                 Waiting for messages...
             </div>
         </div>
+
+        <!-- Connection status indicator -->
+        <div 
+            id="connection-status" 
+            class="absolute bottom-4 right-4 w-4 h-4 rounded-full transition-all duration-300 opacity-100 hidden"
+            title="Connection Status"
+        >
+            <!-- Pulse animation for disconnected state -->
+            <div class="absolute inset-0 rounded-full animate-ping bg-red-400 opacity-75"></div>
+            <!-- Solid circle -->
+            <div class="absolute inset-0 rounded-full bg-red-500"></div>
+        </div>
     </div>
 
     <script>
@@ -37,6 +49,7 @@
         const ws = new WebSocket(wsProtocol + window.location.host);
         const messageDisplay = document.getElementById('message-display');
         const logoContainer = document.getElementById('logo-container');
+        const connectionStatus = document.getElementById('connection-status');
         let messageTimeout;
         let messageTimeoutMs = 30000; // default value
 
@@ -57,8 +70,20 @@
             messageDisplay.classList.remove('opacity-0');
         }
 
+        function showConnectionStatus(connected) {
+            
+            if (connected) {
+                console.log('Showing connection status: connected');
+            } else {
+                connectionStatus.classList.remove('hidden');
+            }
+        }
+
         // Show logo by default
         showLogo();
+        
+        // Initialize connection status
+        showConnectionStatus(true);
 
         ws.onmessage = (event) => {
             try {
@@ -94,19 +119,41 @@
         };
 
         ws.onclose = () => {
+            showConnectionStatus(false);
             const messageElement = messageDisplay.querySelector('div');
-            messageElement.textContent = 'Connection closed';
-            messageElement.classList.add('bg-red-100', 'text-red-600');
-            showMessage();
+            showConnectionStatus(true);
+            console.log('Connection closed');
+            // Try to reconnect every 5 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000);
         };
 
         ws.onerror = (error) => {
+            showConnectionStatus(false);
             const messageElement = messageDisplay.querySelector('div');
             messageElement.textContent = 'Connection error';
             messageElement.classList.add('bg-red-100', 'text-red-600');
             showMessage();
             console.error('WebSocket error:', error);
         };
+
+        // Add connection open handler
+        ws.onopen = () => {
+            showConnectionStatus(true);
+        };
     </script>
+
+    <style>
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+        .animate-ping {
+            animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+    </style>
 </body>
 </html> 
