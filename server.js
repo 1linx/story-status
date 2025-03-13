@@ -6,6 +6,7 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const ipAuth = require('./middleware/ipAuth');
+const { log } = require('console');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -47,6 +48,28 @@ app.get('/control', ipAuth, (req, res, next) => {
         if (err) {
             next(err);
         }
+    });
+});
+
+// API endpoint to get a random GIF
+app.get('/api/random-gif', ipAuth, (req, res) => {
+    const imagesDir = path.join(__dirname, 'public/images/gifs');
+    fs.readdir(imagesDir, (err, files) => {
+        if (err) {
+            console.error('Error reading images directory:', err);
+            return res.status(500).json({ error: 'Failed to read images directory' });
+        }
+
+        // Filter for GIF files
+        const gifFiles = files.filter(file => file.toLowerCase().endsWith('.gif'));
+        
+        if (gifFiles.length === 0) {
+            return res.status(404).json({ error: 'No GIF files found' });
+        }
+
+        // Select a random GIF
+        const randomGif = gifFiles[Math.floor(Math.random() * gifFiles.length)];
+        res.json({ gifPath: `/images/gifs/${randomGif}` });
     });
 });
 

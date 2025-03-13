@@ -4,3 +4,4 @@ image support
 animated gifs
 animated text (marquee)
 ip lock the control page
+add favicon

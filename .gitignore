@@ -63,3 +63,6 @@ ssl/
 *.key
 *.crt
 *.pem
+
+# Images
+public/images/gifs/*
