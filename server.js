@@ -6,6 +6,7 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const ipAuth = require('./middleware/ipAuth');
+const { log } = require('console');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -16,20 +17,71 @@ const MESSAGE_TIMEOUT_MS = process.env.MESSAGE_TIMEOUT_MS || 30000;
 // Enable trust proxy if behind a reverse proxy
 app.set('trust proxy', true);
 
-// Serve static files from public directory, except control.html
-app.use(express.static(path.join(__dirname, 'public'), {
-    index: 'index.html',
-    // Exclude control.html from direct access
-    setHeaders: (res, path) => {
-        if (path.endsWith('control.html')) {
-            res.status(404).send('Not Found');
+// HTML redirect middleware - place this BEFORE other middlewares
+app.use((req, res, next) => {
+    // Check if the request path ends with .html
+    if (req.path.toLowerCase().endsWith('.html')) {
+        // Redirect to root, except for the /control route
+        if (req.path !== '/control') {
+            return res.redirect('/');
         }
     }
+    next();
+});
+
+// Custom middleware to exclude control.html from static serving
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, filepath) => {
+        if (filepath.endsWith('control.html')) {
+            // Don't serve control.html directly through static middleware
+            res.status(404).end();
+            return;
+        }
+    },
+    // Explicitly set index to prevent control.html from being an index
+    index: ['index.html']
 }));
 
 // Special route for control panel with IP authentication
-app.get('/control', ipAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'control.html'));
+app.get('/control', ipAuth, (req, res, next) => {
+    res.sendFile(path.join(__dirname, 'public', 'control.html'), (err) => {
+        if (err) {
+            next(err);
+        }
+    });
+});
+
+// API endpoint to get a random GIF
+app.get('/api/random-gif', ipAuth, (req, res) => {
+    const imagesDir = path.join(__dirname, 'public/images/gifs');
+    fs.readdir(imagesDir, (err, files) => {
+        if (err) {
+            console.error('Error reading images directory:', err);
+            return res.status(500).json({ error: 'Failed to read images directory' });
+        }
+
+        // Filter for GIF files
+        const gifFiles = files.filter(file => file.toLowerCase().endsWith('.gif'));
+        
+        if (gifFiles.length === 0) {
+            return res.status(404).json({ error: 'No GIF files found' });
+        }
+
+        // Select a random GIF
+        const randomGif = gifFiles[Math.floor(Math.random() * gifFiles.length)];
+        res.json({ gifPath: `/images/gifs/${randomGif}` });
+    });
+});
+
+// 404 handler for all other routes
+app.use((req, res) => {
+    res.status(404).send('Not Found');
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
 });
 
 let server;

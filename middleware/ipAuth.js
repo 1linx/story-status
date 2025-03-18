@@ -11,7 +11,6 @@ function ipAuth(req, res, next) {
 
     // Remove IPv6 prefix if present
     const normalizedIP = clientIP.replace(/^::ffff:/, '');
-    console.log('normalizedIP', normalizedIP);
 
     if (allowedIPs.includes(normalizedIP)) {
         next();

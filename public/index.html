@@ -19,6 +19,16 @@
             >
         </div>
 
+        <!-- gif container -->
+        <div id="gif-container" class="w-screen h-screen object-cover opacity-0">
+            <img 
+                id="gif-display"
+                src="/images/gifs/surprised.gif" 
+                alt="Surprised Animation" 
+                class="w-screen h-screen object-cover"
+            >
+        </div>
+
         <!-- Message container -->
         <div 
             id="message-display" 
@@ -49,25 +59,65 @@
         const ws = new WebSocket(wsProtocol + window.location.host);
         const messageDisplay = document.getElementById('message-display');
         const logoContainer = document.getElementById('logo-container');
+        const gifContainer = document.getElementById('gif-container');
+        const gifDisplay = document.getElementById('gif-display');
         const connectionStatus = document.getElementById('connection-status');
-        let messageTimeout;
+        let statusTimeout;
         let messageTimeoutMs = 30000; // default value
 
         function showLogo() {
             logoContainer.classList.remove('opacity-0');
             messageDisplay.classList.add('opacity-0');
+            gifContainer.classList.add('opacity-0');
+            hideMessage();
+            hideGif();
         }
 
         function hideLogo() {
-            console.log(logoContainer); 
             logoContainer.classList.add('opacity-0');
             logoContainer.classList.remove('opacity-100');
-            messageDisplay.classList.remove('opacity-0');
         }
 
         function showMessage() {
-            logoContainer.classList.add('opacity-0');
             messageDisplay.classList.remove('opacity-0');
+            messageDisplay.classList.add('opacity-100');
+            hideLogo();
+            hideGif();
+        }
+
+        function hideMessage() {
+            messageDisplay.classList.add('opacity-0');
+            messageDisplay.classList.remove('opacity-100');
+        }
+
+        async function showGif() {
+            try {
+                console.log('Showing gif');
+                const response = await fetch('/api/random-gif');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                console.log('Gif path:', data.gifPath);
+                gifDisplay.src = data.gifPath;
+                gifDisplay.onload = () => {
+                    gifContainer.classList.remove('opacity-0');
+                    gifContainer.classList.add('opacity-100');
+                    hideLogo();
+                    hideMessage();
+                };
+            } catch (error) {
+                console.error('Error loading GIF:', error);
+                loading.textContent = 'Error loading GIF. Please try again.';
+                loading.style.display = 'block';
+            }
+        }
+
+        function hideGif() {
+            gifContainer.classList.add('opacity-0');
+            gifContainer.classList.remove('opacity-100');
         }
 
         function showConnectionStatus(connected) {
@@ -91,25 +141,28 @@
                 if (data.type === 'config') {
                     // Store the configured timeout value
                     messageTimeoutMs = parseInt(data.messageTimeoutMs);
-                } else if (data.type === 'message') {
+                } else if (data.type === 'message' || data.type === 'random-gif') {
+                    
                     // Hide the logo
-                    console.log('Hiding logo'); 
                     hideLogo();
 
                     // Clear any existing timeout
-                    if (messageTimeout) {
-                        clearTimeout(messageTimeout);
+                    if (statusTimeout) {
+                        clearTimeout(statusTimeout);
                     }
 
-                    // Update and show the message
-                    const messageElement = messageDisplay.querySelector('div');
-                    messageElement.textContent = data.content;
-                    showMessage();
-
-                    console.log('messageTimeoutMs', messageTimeoutMs);
+                    if (data.type === 'message') {
+                        // Update and show the message
+                        const messageElement = messageDisplay.querySelector('div');
+                        messageElement.textContent = data.content;
+                        showMessage();
+                    } else if (data.type === 'random-gif') {
+                        // Select and show the gif
+                        showGif();
+                    }
 
                     // Set timeout to revert to logo after configured time
-                    messageTimeout = setTimeout(() => {
+                    statusTimeout = setTimeout(() => {
                         showLogo();
                     }, messageTimeoutMs);
                 }
