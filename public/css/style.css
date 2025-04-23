@@ -3,6 +3,7 @@
 @tailwind utilities; 
 @tailwind effects; 
 @tailwind typography; 
+@tailwind layout; 
 
 .hind-madurai-light {
     font-family: "Hind Madurai", sans-serif;
