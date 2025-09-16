@@ -1,6 +1,7 @@
 require('dotenv').config();
 const WebSocket = require('ws');
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -10,6 +11,11 @@ const { log } = require('console');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Middleware for parsing cookies and request bodies
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Get timeout from env or use default (30 seconds)
 const MESSAGE_TIMEOUT_MS = process.env.MESSAGE_TIMEOUT_MS || 30000;
@@ -70,6 +76,123 @@ app.get('/api/random-gif', ipAuth, (req, res) => {
         // Select a random GIF
         const randomGif = gifFiles[Math.floor(Math.random() * gifFiles.length)];
         res.json({ gifPath: `/images/gifs/${randomGif}` });
+    });
+});
+
+// Store for tokens (in production, use Redis or database)
+const tokenStore = new Map();
+
+// API endpoint for Kadence OAuth2 token
+app.post('/api/kadence-token', async (req, res) => {
+    try {
+        const loginUrl = process.env.KADENCE_LOGIN_URL;
+        const clientId = process.env.KADENCE_CLIENT_ID;
+        const clientSecret = process.env.KADENCE_SECRET;
+
+        if (!loginUrl || !clientId || !clientSecret) {
+            return res.status(500).json({ error: 'Missing Kadence configuration' });
+        }
+
+        const tokenUrl = `${loginUrl}/oauth2/token`;
+        
+        // Create form data
+        const formData = new URLSearchParams();
+        formData.append('grant_type', 'client_credentials');
+        formData.append('client_id', clientId);
+        formData.append('client_secret', clientSecret);
+        formData.append('scope', 'public');
+
+        const response = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: formData
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('Kadence token request failed:', data);
+            return res.status(response.status).json({ error: 'Token request failed', details: data });
+        }
+
+        if (data.access_token) {
+            // Generate session ID for this client
+            const sessionId = require('crypto').randomBytes(32).toString('hex');
+            
+            // Store token server-side with expiry
+            const expiresAt = data.expires_in ? Date.now() + (data.expires_in * 1000) : null;
+            tokenStore.set(sessionId, {
+                access_token: data.access_token,
+                expires_at: expiresAt,
+                created_at: Date.now()
+            });
+
+            // Set secure HTTP-only cookie
+            const cookieOptions = {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production', // HTTPS in production
+                sameSite: 'strict',
+                maxAge: data.expires_in ? data.expires_in * 1000 : 24 * 60 * 60 * 1000 // Default 24h
+            };
+
+            res.cookie('kadence_session', sessionId, cookieOptions);
+            console.log('Kadence token stored securely with session ID:', sessionId.substring(0, 8) + '...');
+            
+            res.json({ success: true, message: 'Token stored securely' });
+        } else {
+            res.status(400).json({ error: 'No access token received' });
+        }
+    } catch (error) {
+        console.error('Error requesting Kadence token:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Helper function to get token from session
+function getTokenFromSession(req) {
+    const sessionId = req.cookies?.kadence_session;
+    if (!sessionId) return null;
+
+    const tokenData = tokenStore.get(sessionId);
+    if (!tokenData) return null;
+
+    // Check if token is expired
+    if (tokenData.expires_at && Date.now() > tokenData.expires_at) {
+        tokenStore.delete(sessionId);
+        return null;
+    }
+
+    return tokenData.access_token;
+}
+
+// Endpoint to check token status
+app.get('/api/kadence-token-status', (req, res) => {
+    const sessionId = req.cookies?.kadence_session;
+    if (!sessionId) {
+        return res.json({ hasToken: false, message: 'No session found' });
+    }
+
+    const tokenData = tokenStore.get(sessionId);
+    if (!tokenData) {
+        return res.json({ hasToken: false, message: 'Session not found' });
+    }
+
+    // Check if token is expired or about to expire (within 5 minutes)
+    const fiveMinutes = 5 * 60 * 1000;
+    const isExpired = tokenData.expires_at && Date.now() > tokenData.expires_at;
+    const isExpiringSoon = tokenData.expires_at && Date.now() > (tokenData.expires_at - fiveMinutes);
+
+    if (isExpired) {
+        tokenStore.delete(sessionId);
+        return res.json({ hasToken: false, message: 'Token expired' });
+    }
+
+    res.json({ 
+        hasToken: true, 
+        expiresAt: tokenData.expires_at,
+        isExpiringSoon: isExpiringSoon
     });
 });
 
