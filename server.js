@@ -287,6 +287,79 @@ app.get('/api/kadence-bookings', async (req, res) => {
     }
 });
 
+// API endpoint to get user info by email
+app.get('/api/kadence-user', async (req, res) => {
+    try {
+        const accessToken = getTokenFromSession(req);
+        
+        if (!accessToken) {
+            return res.status(401).json({ error: 'No valid token available' });
+        }
+
+        const apiUrl = process.env.KADENCE_API_URL;
+        if (!apiUrl) {
+            return res.status(500).json({ error: 'KADENCE_API_URL not configured' });
+        }
+
+        // Get email from query parameter
+        const email = req.query.email;
+        if (!email) {
+            return res.status(400).json({ error: 'Email query parameter is required' });
+        }
+
+        const usersUrl = `${apiUrl}/v1/public/users`;
+        
+        // Build URL with email query parameter
+        let url = new URL(usersUrl);
+        url.searchParams.append('email', email);
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('Kadence user API request failed:', response.status, data);
+            return res.status(response.status).json({ error: 'User API request failed', details: data });
+        }
+
+        // Check if the response contains an error
+        if (data.error) {
+            console.error('Kadence user API returned error:', data.error);
+            return res.status(400).json({ error: 'User API returned error', details: data.error });
+        }
+
+        // Extract user information from hydra:member array
+        const users = [];
+        if (data['hydra:member'] && Array.isArray(data['hydra:member'])) {
+            data['hydra:member'].forEach(user => {
+                users.push({
+                    id: user.id || null,
+                    firstName: user.firstName || null,
+                    lastName: user.lastName || null,
+                    monogram: user.monogram || null
+                });
+            });
+        }
+
+        if (users.length === 0) {
+            console.log('No users found for email:', email);
+            return res.json({ message: 'No users found', users: [] });
+        }
+
+        console.log('Extracted user data for email', email, ':', users);
+        res.json({ users });
+    } catch (error) {
+        console.error('Error requesting Kadence user info:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // 404 handler for all other routes
 app.use((req, res) => {
     res.status(404).send('Not Found');
