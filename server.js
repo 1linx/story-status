@@ -196,6 +196,97 @@ app.get('/api/kadence-token-status', (req, res) => {
     });
 });
 
+// API proxy endpoint for Kadence buildings
+app.get('/api/kadence-buildings', async (req, res) => {
+    try {
+        const accessToken = getTokenFromSession(req);
+        
+        if (!accessToken) {
+            return res.status(401).json({ error: 'No valid token available' });
+        }
+
+        const apiUrl = process.env.KADENCE_API_URL;
+        if (!apiUrl) {
+            return res.status(500).json({ error: 'KADENCE_API_URL not configured' });
+        }
+
+        const buildingsUrl = `${apiUrl}/v1/public/buildings`;
+        
+        const response = await fetch(buildingsUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('Kadence buildings API request failed:', response.status, data);
+            return res.status(response.status).json({ error: 'Buildings API request failed', details: data });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error('Error requesting Kadence buildings:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/kadence-bookings', async (req, res) => {
+    try {
+
+        const accessToken = getTokenFromSession(req);
+
+        if (!accessToken) {
+            return res.status(401).json({ error: 'No valid token available' });
+        }
+
+        const apiUrl = process.env.KADENCE_API_URL;
+        if (!apiUrl) {
+            return res.status(500).json({ error: 'KADENCE_API_URL not configured' });
+        }
+
+        const bookingsUrl = `${apiUrl}/v1/public/bookings`;
+
+        const todayAtSevenAm = new Date();
+        todayAtSevenAm.setHours(7, 0, 0, 0);
+        const formattedDateAtSevenAm = todayAtSevenAm.toISOString().slice(0, 19);
+
+        const todayAtFivePm = new Date();
+        todayAtFivePm.setHours(17, 0, 0, 0);
+        const formattedDateAtFivePm = todayAtFivePm.toISOString().slice(0, 19);
+
+        let url = new URL(bookingsUrl);
+
+        url.searchParams.append('startDateTime[local_after]', formattedDateAtSevenAm);
+        url.searchParams.append('startDateTime[local_before]', formattedDateAtFivePm);
+        url.searchParams.append('type', 'desk');
+        url.searchParams.append('status', 'booked');
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('Kadence buildings API request failed:', response.status, data);
+            return res.status(response.status).json({ error: 'Buildings API request failed', details: data });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error('Error requesting Kadence buildings:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // 404 handler for all other routes
 app.use((req, res) => {
     res.status(404).send('Not Found');

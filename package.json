@@ -6,9 +6,12 @@
     "ws": "^8.18.1"
   },
   "scripts": {
-    "build:css": "tailwindcss -i ./public/css/style.css -o ./public/css/output.css --watch"
+    "build:css": "tailwindcss -i ./public/css/style.css -o ./public/css/output.css --watch",
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
   "devDependencies": {
+    "nodemon": "^3.1.10",
     "tailwindcss": "^3.4.17"
   }
 }

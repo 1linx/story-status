@@ -25,7 +25,7 @@ function hideLogo() {
     logoContainer.classList.remove('opacity-100');
 }
 
-function showUserList() {
+async function showUserList() {
     // Clear any existing timeouts
     if (statusTimeout) {
         clearTimeout(statusTimeout);
@@ -38,6 +38,9 @@ function showUserList() {
     hideLogo();
     hideMessage();
     hideGif();
+
+    // Update user list with fresh data
+    await updateUserList();
 
     // Show user list
     const userListContainer = document.getElementById('user-list-container');
@@ -170,6 +173,65 @@ async function ensureValidToken() {
     
     console.log('Valid token exists');
     return true;
+}
+
+// Function to fetch bookings data
+async function fetchBookings() {
+    try {
+        // Ensure we have a valid token first
+        const hasToken = await ensureValidToken();
+        if (!hasToken) {
+            console.error('Failed to get valid token for bookings');
+            return [];
+        }
+
+        const response = await fetch('/api/kadence-bookings', {
+            method: 'GET',
+            credentials: 'same-origin'
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('Bookings request failed:', data);
+            return [];
+        }
+
+        // Extract email addresses from the response
+        const emails = [];
+        if (data['hydra:member'] && Array.isArray(data['hydra:member'])) {
+            data['hydra:member'].forEach(booking => {
+                if (booking.bookingUserEmail) {
+                    emails.push(booking.bookingUserEmail);
+                }
+            });
+        }
+
+        // Remove duplicates
+        const uniqueEmails = [...new Set(emails)];
+        console.log('Found bookings for emails:', uniqueEmails);
+        return uniqueEmails;
+    } catch (error) {
+        console.error('Error fetching bookings:', error);
+        return [];
+    }
+}
+
+// Function to update user list with real data
+async function updateUserList() {
+    const emails = await fetchBookings();
+    const userListContainer = document.getElementById('user-list-container');
+    const userListDiv = userListContainer.querySelector('.space-y-6');
+    
+    if (emails.length > 0) {
+        // Clear existing fake data and populate with real emails
+        userListDiv.innerHTML = emails.map(email => 
+            `<div class="text-4xl text-gray-700 text-center px-8 py-4 bg-gray-100 rounded-lg shadow-sm">${email}</div>`
+        ).join('');
+    } else {
+        // Show placeholder if no bookings
+        userListDiv.innerHTML = '<div class="text-4xl text-gray-500 text-center px-8 py-4 bg-gray-100 rounded-lg shadow-sm">No bookings found for today</div>';
+    }
 }
 
 // Initialize when DOM is loaded
