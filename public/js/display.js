@@ -15,6 +15,8 @@ function showLogo() {
     logoContainer.classList.remove('opacity-0');
     messageDisplay.classList.add('opacity-0');
     gifContainer.classList.add('opacity-0');
+    logoContainer.classList.add('z-50');
+    logoContainer.classList.remove('z-0');
     hideMessage();
     hideGif();
     hideUserList();
@@ -23,6 +25,8 @@ function showLogo() {
 function hideLogo() {
     logoContainer.classList.add('opacity-0');
     logoContainer.classList.remove('opacity-100');
+    logoContainer.classList.add('z-0');
+    logoContainer.classList.remove('z-50');
 }
 
 async function showUserList() {
@@ -73,7 +77,6 @@ function hideMessage() {
 
 async function showGif() {
     try {
-        console.log('Showing gif');
         const response = await fetch('/api/random-gif');
         const data = await response.json();
         
@@ -217,20 +220,91 @@ async function fetchBookings() {
     }
 }
 
+// Function to fetch user details by email
+async function fetchUserByEmail(email) {
+    try {
+        const response = await fetch(`/api/kadence-user?email=${encodeURIComponent(email)}`, {
+            method: 'GET',
+            credentials: 'same-origin'
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('User request failed for email', email, ':', data);
+            return null;
+        }
+
+        // Validate that response contains exactly one user
+        if (!data.users || !Array.isArray(data.users)) {
+            console.error('Invalid user response format for email', email, ':', data);
+            return null;
+        }
+
+        if (data.users.length === 0) {
+            console.error('No user found for email', email);
+            return null;
+        }
+
+        if (data.users.length > 1) {
+            console.error('Multiple users found for email', email, '- expected exactly one user, got', data.users.length);
+            // Continue with first user
+        }
+
+        const user = data.users[0];
+        return {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            monogram: user.monogram || ''
+        };
+    } catch (error) {
+        console.error('Error fetching user details for email', email, ':', error);
+        return null;
+    }
+}
+
 // Function to update user list with real data
 async function updateUserList() {
     const emails = await fetchBookings();
     const userListContainer = document.getElementById('user-list-container');
-    const userListDiv = userListContainer.querySelector('.space-y-6');
+    const userListDiv = userListContainer.querySelector('.user-list');
     
     if (emails.length > 0) {
-        // Clear existing fake data and populate with real emails
-        userListDiv.innerHTML = emails.map(email => 
-            `<div class="text-4xl text-gray-700 text-center px-8 py-4 bg-gray-100 rounded-lg shadow-sm">${email}</div>`
-        ).join('');
+        // Show loading state
+        userListDiv.innerHTML = '<div class="col-span-4 text-2xl text-gray-500 text-center py-8">Loading user details...</div>';
+        
+        // Fetch user details for each email
+        const userPromises = emails.map(email => fetchUserByEmail(email));
+        const users = await Promise.all(userPromises);
+        
+        // Filter out null responses and create display names
+        const validUsers = users.filter(user => user !== null);
+        
+        if (validUsers.length > 0) {
+            // Define alternating color schemes
+            const colorSchemes = [
+                'bg-blue-500 text-white',
+                'bg-green-500 text-white', 
+                'bg-purple-500 text-white',
+                'bg-orange-500 text-white',
+                'bg-red-500 text-white',
+                'bg-indigo-500 text-white',
+                'bg-pink-500 text-white',
+                'bg-teal-500 text-white'
+            ];
+
+            // Display monograms in grid with alternating colors
+            userListDiv.innerHTML = validUsers.map((user, index) => {
+                const colorScheme = colorSchemes[index % colorSchemes.length];
+                return `<div class="w-20 h-20 ${colorScheme} rounded-full shadow-lg flex items-center justify-center text-2xl font-bold">${user.monogram}</div>`;
+            }).join('');
+        } else {
+            userListDiv.innerHTML = '<div class="col-span-4 text-2xl text-gray-500 text-center py-8">No valid users found</div>';
+        }
     } else {
         // Show placeholder if no bookings
-        userListDiv.innerHTML = '<div class="text-4xl text-gray-500 text-center px-8 py-4 bg-gray-100 rounded-lg shadow-sm">No bookings found for today</div>';
+        userListDiv.innerHTML = '<div class="col-span-4 text-2xl text-gray-500 text-center py-8">No bookings found for today</div>';
     }
 }
 
@@ -239,8 +313,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add click event listener to logo container
     logoContainer.addEventListener('click', showUserList);
 
-    logoContainer.classList.add('display:none;');
-    
     // Show logo by default
     showLogo();
     
