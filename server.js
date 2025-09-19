@@ -223,11 +223,26 @@ app.get('/api/kadence-buildings', async (req, res) => {
         const data = await response.json();
         
         if (!response.ok) {
-            console.error('Kadence buildings API request failed:', response.status, data);
-            return res.status(response.status).json({ error: 'Buildings API request failed', details: data });
+            console.error('Kadence bookings API request failed:', response.status, data);
+            return res.status(response.status).json({ error: 'Bookings API request failed', details: data });
         }
 
-        res.json(data);
+        // Process the data to include booking IDs mapped to emails
+        const processedData = {
+            ...data,
+            emailBookingMap: {}
+        };
+
+        if (data['hydra:member'] && Array.isArray(data['hydra:member'])) {
+            data['hydra:member'].forEach(booking => {
+                if (booking.bookingUserEmail && booking.id) {
+                    // Map email to booking ID (assuming one booking per user per day)
+                    processedData.emailBookingMap[booking.bookingUserEmail] = booking.id;
+                }
+            });
+        }
+
+        res.json(processedData);
     } catch (error) {
         console.error('Error requesting Kadence buildings:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -356,6 +371,55 @@ app.get('/api/kadence-user', async (req, res) => {
         res.json({ users });
     } catch (error) {
         console.error('Error requesting Kadence user info:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// API endpoint for check-in
+app.post('/api/kadence-checkin', async (req, res) => {
+    try {
+        const accessToken = getTokenFromSession(req);
+        
+        if (!accessToken) {
+            return res.status(401).json({ error: 'No valid token available' });
+        }
+
+        const apiUrl = process.env.KADENCE_API_URL;
+        if (!apiUrl) {
+            return res.status(500).json({ error: 'KADENCE_API_URL not configured' });
+        }
+
+        const { bookingId, userId } = req.body;
+        
+        if (!bookingId || !userId) {
+            return res.status(400).json({ error: 'bookingId and userId are required' });
+        }
+
+        const checkInUrl = `${apiUrl}/v1/public/bookings/${bookingId}/check-in`;
+        
+        const response = await fetch(checkInUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userId: userId,
+                method: 'wifi'
+            })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('Kadence check-in API request failed:', response.status, data);
+            return res.status(response.status).json({ error: 'Check-in API request failed', details: data });
+        }
+
+        console.log('Check-in successful for user:', userId, 'booking:', bookingId);
+        res.json({ success: true, data });
+    } catch (error) {
+        console.error('Error processing check-in:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

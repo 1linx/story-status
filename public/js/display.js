@@ -9,6 +9,7 @@ const gifDisplay = document.getElementById('gif-display');
 const connectionStatus = document.getElementById('connection-status');
 let statusTimeout;
 let userListTimeout;
+let timeout = 15000;
 let messageTimeoutMs = 30000; // default value
 
 function showLogo() {
@@ -54,13 +55,61 @@ async function showUserList() {
     // Set timeout to return to logo after 15 seconds
     userListTimeout = setTimeout(() => {
         showLogo();
-    }, 15000);
+    }, timeout);
 }
 
 function hideUserList() {
     const userListContainer = document.getElementById('user-list-container');
     userListContainer.classList.add('opacity-0');
     userListContainer.classList.remove('opacity-100');
+}
+
+// Function to show check-in confirmation
+function showCheckInConfirmation(userData) {
+    const userListContainer = document.getElementById('user-list-container');
+    
+    // Hide the existing user list content
+    const userListContent = userListContainer.children;
+    if (userListContent.length > 0) {
+        for (const element of userListContent) {
+            element.classList.add('hidden');
+        }
+    }
+    
+    // Create confirmation dialog element
+    const confirmationDialog = document.createElement('div');
+    confirmationDialog.id = 'check-in-confirmation';
+    confirmationDialog.innerHTML = `
+        <div class="flex flex-col items-center">
+            <h1 class="text-6xl font-bold mb-8 text-gray-800">Check in</h1>
+            <div class="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+                <div class="mb-6">
+                    <div class="w-24 h-24 ${userData.bgColor} text-white rounded-full shadow-lg flex items-center justify-center text-3xl font-bold mx-auto mb-4">
+                        ${userData.monogram}
+                    </div>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-2">${userData.fullName}</h2>
+                </div>
+                <p class="text-xl text-gray-600 mb-8">Would you like to check in?</p>
+                <div class="flex gap-4 justify-center">
+                    <button 
+                        class="px-8 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                        onclick="handleCheckInConfirm('${userData.id}', '${userData.email}', '${userData.fullName}')"
+                    >
+                        Yes
+                    </button>
+                    <button 
+                        class="px-8 py-3 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                        onclick="handleCheckInCancel()"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add confirmation dialog to container
+    userListContainer.appendChild(confirmationDialog);
 }
 
 function showMessage() {
@@ -200,12 +249,16 @@ async function fetchBookings() {
             return [];
         }
 
-        // Extract email addresses from the response
+        // Extract email addresses from the response and get booking mapping
         const emails = [];
+        const bookingIds = [];
         if (data['hydra:member'] && Array.isArray(data['hydra:member'])) {
             data['hydra:member'].forEach(booking => {
                 if (booking.bookingUserEmail) {
                     emails.push(booking.bookingUserEmail);
+                    if (booking.id) {
+                        bookingIds[booking.bookingUserEmail] = booking.id;
+                    }
                 }
             });
         }
@@ -213,6 +266,11 @@ async function fetchBookings() {
         // Remove duplicates
         const uniqueEmails = [...new Set(emails)];
         console.log('Found bookings for emails:', uniqueEmails);
+        console.log('Email to with booking ID:', bookingIds);
+        
+        // Store the booking mapping globally for use in check-in
+        window.emailBookingMap = bookingIds || {};
+        
         return uniqueEmails;
     } catch (error) {
         console.error('Error fetching bookings:', error);
@@ -253,10 +311,12 @@ async function fetchUserByEmail(email) {
 
         const user = data.users[0];
         return {
+            id: user.id,
             firstName: user.firstName,
             lastName: user.lastName,
             fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            monogram: user.monogram || ''
+            monogram: user.monogram || '',
+            email: email // Store the original email used to fetch this user
         };
     } catch (error) {
         console.error('Error fetching user details for email', email, ':', error);
@@ -264,12 +324,153 @@ async function fetchUserByEmail(email) {
     }
 }
 
+// Function to handle monogram click events
+function handleMonogramClick(event, element) {
+    event.preventDefault();
+    
+    // Clear the timeout to prevent auto-return to logo during user interaction
+    if (userListTimeout) {
+        clearTimeout(userListTimeout);
+        userListTimeout = null;
+        console.log('Cleared userListTimeout - user is interacting');
+    }
+    
+    // Extract user data from data attributes
+    const userData = {
+        id: element.dataset.userId,
+        email: element.dataset.userEmail,
+        monogram: element.dataset.userMonogram,
+        fullName: element.dataset.userName,
+        bgColor: element.dataset.userColorScheme
+    };
+
+    console.log('DATA', element.dataset);
+    console.log('Monogram clicked:', userData);
+    
+    // Show check-in confirmation instead of continuing to user list
+    showCheckInConfirmation(userData);
+}
+
+// Function to handle check-in confirmation (Yes button)
+async function handleCheckInConfirm(userId, email, fullName) {
+    console.log('Check-in confirmed for:', { userId, email, fullName });
+    
+    // Get the booking ID for this user's email
+    const bookingId = window.emailBookingMap[email];
+    
+    if (!bookingId) {
+        console.error('No booking ID found for email:', email);
+        alert('Error: No booking found for this user');
+        return;
+    }
+    
+    try {
+        // Show loading state
+        const userListContainer = document.getElementById('user-list-container');
+        userListContainer.innerHTML = `
+            <div class="flex flex-col items-center">
+                <h1 class="text-6xl font-bold mb-8 text-gray-800">Check In</h1>
+                <div class="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+                    <p class="text-xl text-gray-600 mb-4">Checking in...</p>
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                </div>
+            </div>
+        `;
+        
+        // Make check-in API request
+        const response = await fetch('/api/kadence-checkin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                bookingId: bookingId,
+                userId: userId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Check-in failed');
+        }
+        
+        console.log('Check-in successful:', data);
+        
+        // Show success message briefly before returning to logo
+        userListContainer.innerHTML = `
+            <div class="flex flex-col items-center">
+                <h1 class="text-6xl font-bold mb-8 text-gray-800">Check In</h1>
+                <div class="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+                    <div class="text-green-500 text-6xl mb-4">✓</div>
+                    <p class="text-xl text-gray-800 font-semibold mb-2">Check-in Successful!</p>
+                    <p class="text-gray-600">${fullName}</p>
+                </div>
+            </div>
+        `;
+        
+        // Return to logo after 2 seconds
+        setTimeout(() => {
+            showLogo();
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Check-in failed:', error);
+        
+        // Show error message
+        const userListContainer = document.getElementById('user-list-container');
+        userListContainer.innerHTML = `
+            <div class="flex flex-col items-center">
+                <h1 class="text-6xl font-bold mb-8 text-gray-800">Check In</h1>
+                <div class="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+                    <div class="text-red-500 text-6xl mb-4">✗</div>
+                    <p class="text-xl text-gray-800 font-semibold mb-2">Check-in Failed</p>
+                    <p class="text-gray-600 mb-4">${error.message}</p>
+                    <button 
+                        class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        onclick="showUserList()"
+                    >
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Function to handle check-in cancellation (Cancel button)
+function handleCheckInCancel() {
+    console.log('Check-in cancelled, returning to user list');
+    
+    const userListContainer = document.getElementById('user-list-container');
+    
+    // Remove the confirmation dialog
+    const confirmationDialog = document.getElementById('check-in-confirmation');
+    if (confirmationDialog) {
+        confirmationDialog.remove();
+    }
+    
+    // Show the hidden user list content
+    const userListContent = userListContainer.children;
+    if (userListContent.length > 0) {
+        for (const element of userListContent) {
+            element.classList.remove('hidden');
+        }
+    }
+    
+    // Reset the timeout to return to logo after 15 seconds
+    userListTimeout = setTimeout(() => {
+        showLogo();
+    }, 15000);
+}
+
 // Function to update user list with real data
 async function updateUserList() {
     const emails = await fetchBookings();
     const userListContainer = document.getElementById('user-list-container');
     const userListDiv = userListContainer.querySelector('.user-list');
-    
+
     if (emails.length > 0) {
         // Show loading state
         userListDiv.innerHTML = '<div class="col-span-4 text-2xl text-gray-500 text-center py-8">Loading user details...</div>';
@@ -294,10 +495,19 @@ async function updateUserList() {
                 'bg-teal-500 text-white'
             ];
 
-            // Display monograms in grid with alternating colors
+            // Display monograms in grid with alternating colors as clickable elements
             userListDiv.innerHTML = validUsers.map((user, index) => {
                 const colorScheme = colorSchemes[index % colorSchemes.length];
-                return `<div class="w-20 h-20 ${colorScheme} rounded-full shadow-lg flex items-center justify-center text-2xl font-bold">${user.monogram}</div>`;
+                return `<button 
+                    class="w-20 h-20 ${colorScheme} rounded-full shadow-lg flex items-center justify-center text-2xl font-bold hover:scale-105 transition-transform cursor-pointer focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2" 
+                    data-user-id="${user.id || ''}" 
+                    data-user-email="${user.email || ''}" 
+                    data-user-booking-id="${window.emailBookingMap[user.email] || ''}" 
+                    data-user-monogram="${user.monogram}" 
+                    data-user-name="${user.fullName}"
+                    data-user-color-scheme="${colorScheme}"
+                    onclick="handleMonogramClick(event, this)"
+                >${user.monogram}</button>`;
             }).join('');
         } else {
             userListDiv.innerHTML = '<div class="col-span-4 text-2xl text-gray-500 text-center py-8">No valid users found</div>';
