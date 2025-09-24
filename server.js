@@ -401,7 +401,7 @@ app.post('/api/kadence-checkin', async (req, res) => {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/ld+json'
             },
             body: JSON.stringify({
                 userId: userId,
