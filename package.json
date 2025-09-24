@@ -1,13 +1,20 @@
 {
   "dependencies": {
+    "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "ws": "^8.18.1"
   },
   "scripts": {
-    "build:css": "tailwindcss -i ./public/css/style.css -o ./public/css/output.css --watch"
+    "build:css": "tailwindcss -i ./public/css/style.css -o ./public/css/output.css --watch",
+    "build:css:once": "tailwindcss -i ./public/css/style.css -o ./public/css/output.css",
+    "dev": "nodemon server.js",
+    "dev:full": "concurrently \"npm run build:css\" \"npm run dev\"",
+    "start": "node server.js"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.10",
     "tailwindcss": "^3.4.17"
   }
 }

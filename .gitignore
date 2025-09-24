@@ -66,3 +66,6 @@ ssl/
 
 # Images
 public/images/gifs/*
+
+#Claude
+CLAUDE.md
