@@ -9,7 +9,7 @@ const gifDisplay = document.getElementById('gif-display');
 const connectionStatus = document.getElementById('connection-status');
 let statusTimeout;
 let userListTimeout;
-let timeout = 15000;
+let timeout = 3500;
 let messageTimeoutMs = 30000; // default value
 
 function showLogo() {
@@ -39,6 +39,23 @@ async function showUserList() {
         clearTimeout(userListTimeout);
     }
 
+    // Clean up any existing overlays or confirmation dialogs
+    const userListContainer = document.getElementById('user-list-container');
+    const existingConfirmation = document.getElementById('check-in-confirmation');
+    const existingLoadingOverlay = document.getElementById('loading-overlay');
+    const existingSuccessOverlay = document.getElementById('success-overlay');
+    
+    if (existingConfirmation) {
+        existingConfirmation.remove();
+    }
+    if (existingLoadingOverlay) {
+        existingLoadingOverlay.remove();
+    }
+    if (existingSuccessOverlay) {
+        existingSuccessOverlay.remove();
+    }
+    
+
     // Hide other elements
     hideLogo();
     hideMessage();
@@ -48,9 +65,17 @@ async function showUserList() {
     await updateUserList();
 
     // Show user list
-    const userListContainer = document.getElementById('user-list-container');
     userListContainer.classList.remove('opacity-0');
     userListContainer.classList.add('opacity-100');
+
+    // Remove 'hidden' class from user list items (monogram buttons)
+    const userListDiv = userListContainer.querySelector('.user-list');
+    if (userListContainer) {
+        const hiddenElements = userListContainer.querySelectorAll('.hidden');
+        hiddenElements.forEach(element => {
+            element.classList.remove('hidden');
+        });
+    }
 
     // Set timeout to return to logo after 15 seconds
     userListTimeout = setTimeout(() => {
@@ -62,6 +87,27 @@ function hideUserList() {
     const userListContainer = document.getElementById('user-list-container');
     userListContainer.classList.add('opacity-0');
     userListContainer.classList.remove('opacity-100');
+}
+
+// Function to completely reset to logo and clear user list state
+function resetToLogo() {
+    // Clear all timeouts
+    if (statusTimeout) {
+        clearTimeout(statusTimeout);
+        statusTimeout = null;
+    }
+    if (userListTimeout) {
+        clearTimeout(userListTimeout);
+        userListTimeout = null;
+    }
+
+    // Clear global booking map
+    window.emailBookingMap = {};
+    
+    // Show logo
+    showLogo();
+    
+    console.log('Reset to logo - all state cleared');
 }
 
 // Function to show check-in confirmation
@@ -133,7 +179,6 @@ async function showGif() {
             throw new Error(data.error);
         }
 
-        console.log('Gif path:', data.gifPath);
         gifDisplay.src = data.gifPath;
         gifDisplay.onload = () => {
             gifContainer.classList.remove('opacity-0');
@@ -344,7 +389,6 @@ function handleMonogramClick(event, element) {
         bgColor: element.dataset.userColorScheme
     };
 
-    console.log('DATA', element.dataset);
     console.log('Monogram clicked:', userData);
     
     // Show check-in confirmation instead of continuing to user list
@@ -365,18 +409,19 @@ async function handleCheckInConfirm(userId, email, fullName) {
     }
     
     try {
-        // Show loading state
+        // Show loading overlay (preserve existing content)
         const userListContainer = document.getElementById('user-list-container');
-        userListContainer.innerHTML = `
-            <div class="flex flex-col items-center">
-                <h1 class="text-6xl font-bold mb-8 text-gray-800">Check In</h1>
-                <div class="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
-                    <p class="text-xl text-gray-600 mb-4">Checking in...</p>
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                </div>
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'loading-overlay';
+        loadingOverlay.className = 'absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center z-50';
+        loadingOverlay.innerHTML = `
+            <div class="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+                <p class="text-xl text-gray-600 mb-4">Checking in...</p>
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
             </div>
         `;
-        
+        userListContainer.appendChild(loadingOverlay);
+
         // Make check-in API request
         const response = await fetch('/api/kadence-checkin', {
             method: 'POST',
@@ -389,7 +434,7 @@ async function handleCheckInConfirm(userId, email, fullName) {
                 userId: userId
             })
         });
-        
+
         const data = await response.json();
         
         if (!response.ok) {
@@ -398,25 +443,42 @@ async function handleCheckInConfirm(userId, email, fullName) {
         
         console.log('Check-in successful:', data);
         
-        // Show success message briefly before returning to logo
-        userListContainer.innerHTML = `
-            <div class="flex flex-col items-center">
-                <h1 class="text-6xl font-bold mb-8 text-gray-800">Check In</h1>
-                <div class="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
-                    <div class="text-green-500 text-6xl mb-4">✓</div>
-                    <p class="text-xl text-gray-800 font-semibold mb-2">Check-in Successful!</p>
-                    <p class="text-gray-600">${fullName}</p>
-                </div>
+        // Remove loading overlay
+        if (loadingOverlay) {
+            loadingOverlay.remove();
+        }
+        
+        // Create success overlay message
+        const successOverlay = document.createElement('div');
+        successOverlay.id = 'success-overlay';
+        successOverlay.className = 'absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center z-50';
+        successOverlay.innerHTML = `
+            <div class="bg-white rounded-lg shadow-lg p-8 max-w-md text-center border-2 border-green-200">
+                <div class="text-green-500 text-6xl mb-4">✓</div>
+                <p class="text-xl text-gray-800 font-semibold mb-2">Check-in Successful!</p>
+                <p class="text-gray-600">${fullName}</p>
             </div>
         `;
         
-        // Return to logo after 2 seconds
+        // Add overlay to container (preserving existing content)
+        userListContainer.appendChild(successOverlay);
+        
+        // Return to logo after 5 seconds and remove overlay
         setTimeout(() => {
-            showLogo();
-        }, 2000);
+            if (successOverlay) {
+                successOverlay.remove();
+            }
+            resetToLogo();
+        }, 5000);
         
     } catch (error) {
         console.error('Check-in failed:', error);
+        
+        // Remove loading overlay
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.remove();
+        }
         
         // Show error message
         const userListContainer = document.getElementById('user-list-container');
@@ -429,13 +491,18 @@ async function handleCheckInConfirm(userId, email, fullName) {
                     <p class="text-gray-600 mb-4">${error.message}</p>
                     <button 
                         class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                        onclick="showUserList()"
+                        onclick="resetToLogo()"
                     >
                         Try Again
                     </button>
                 </div>
             </div>
         `;
+        
+        // Auto-return to logo after 15 seconds even on error
+        setTimeout(() => {
+            resetToLogo();
+        }, timeout);
     }
 }
 
@@ -461,8 +528,8 @@ function handleCheckInCancel() {
     
     // Reset the timeout to return to logo after 15 seconds
     userListTimeout = setTimeout(() => {
-        showLogo();
-    }, 15000);
+        resetToLogo();
+    }, timeout);
 }
 
 // Function to update user list with real data
