@@ -389,6 +389,7 @@ app.post('/api/kadence-checkin', async (req, res) => {
             return res.status(500).json({ error: 'KADENCE_API_URL not configured' });
         }
 
+        console.log('req.body', req.body);
         const { bookingId, userId } = req.body;
         
         if (!bookingId || !userId) {
