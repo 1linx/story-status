@@ -1121,10 +1121,6 @@ video {
   transition-duration: 300ms;
 }
 
-.duration-500 {
-  transition-duration: 500ms;
-}
-
 @tailwind effects;
 
 @tailwind typography;

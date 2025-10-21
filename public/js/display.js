@@ -61,21 +61,25 @@ async function showUserList() {
     hideMessage();
     hideGif();
 
-    // Update user list with fresh data
-    await updateUserList();
-
     // Show user list
     userListContainer.classList.remove('opacity-0');
     userListContainer.classList.add('opacity-100');
 
     // Remove 'hidden' class from user list items (monogram buttons)
     const userListDiv = userListContainer.querySelector('.user-list');
+
+    // Show loading state
+    userListDiv.innerHTML = '<div class="col-span-4 text-2xl text-gray-500 text-center py-8">Loading user details...</div>';
+
     if (userListContainer) {
         const hiddenElements = userListContainer.querySelectorAll('.hidden');
         hiddenElements.forEach(element => {
             element.classList.remove('hidden');
         });
     }
+
+    // Update user list with fresh data
+    await updateUserList();
 
     // Set timeout to return to logo after 15 seconds
     userListTimeout = setTimeout(() => {
@@ -539,21 +543,19 @@ async function updateUserList() {
     const userListDiv = userListContainer.querySelector('.user-list');
 
     if (emails.length > 0) {
-        // Show loading state
-        userListDiv.innerHTML = '<div class="col-span-4 text-2xl text-gray-500 text-center py-8">Loading user details...</div>';
-        
+
         // Fetch user details for each email
         const userPromises = emails.map(email => fetchUserByEmail(email));
         const users = await Promise.all(userPromises);
-        
+
         // Filter out null responses and create display names
         const validUsers = users.filter(user => user !== null);
-        
+
         if (validUsers.length > 0) {
             // Define alternating color schemes
             const colorSchemes = [
                 'bg-blue-500 text-white',
-                'bg-green-500 text-white', 
+                'bg-green-500 text-white',
                 'bg-purple-500 text-white',
                 'bg-orange-500 text-white',
                 'bg-red-500 text-white',

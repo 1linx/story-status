@@ -13,28 +13,28 @@
     <div id="content-container" class="w-screen h-screen relative">
 
         <!-- Logo container -->
-        <div id="logo-container" class="absolute inset-0 flex justify-center items-center transition-opacity duration-500 opacity-100 p-8 cursor-pointer z-50">
-            <img 
-                src="/images/storylogo.png" 
-                alt="Story Logo" 
+        <div id="logo-container" class="absolute inset-0 flex justify-center items-center transition-opacity duration-200 opacity-100 p-8 cursor-pointer z-50">
+            <img
+                src="/images/storylogo.png"
+                alt="Story Logo"
                 class="max-h-screen max-w-screen object-contain"
             >
         </div>
 
         <!-- gif container -->
         <div id="gif-container" class="w-screen h-screen object-cover opacity-0">
-            <img 
+            <img
                 id="gif-display"
-                src="/images/gifs/surprised.gif" 
-                alt="Surprised Animation" 
+                src="/images/gifs/surprised.gif"
+                alt="Surprised Animation"
                 class="w-screen h-screen object-cover"
             >
         </div>
 
         <!-- Message container -->
-        <div 
-            id="message-display" 
-            class="absolute inset-0 flex justify-center items-center opacity-0 transition-opacity duration-500"
+        <div
+            id="message-display"
+            class="absolute inset-0 flex justify-center items-center opacity-0 transition-opacity duration-200"
         >
             <div class="text-9xl p-8 rounded-lg max-w-2xl text-center">
                 Waiting for messages...
@@ -42,13 +42,13 @@
         </div>
 
         <!-- User list container -->
-        <div 
-            id="user-list-container" 
-            class="absolute inset-0 flex flex-col justify-start items-center opacity-0 transition-opacity duration-500 bg-white pt-32 z-10"
+        <div
+            id="user-list-container"
+            class="absolute inset-0 flex flex-col justify-start items-center opacity-0 transition-opacity duration-200 bg-white pt-32 z-10"
         >
             <h1 class="text-6xl font-bold mb-8 text-gray-800 hidden">Check in</h1>
             <div class="user-list grid grid-cols-4 gap-4 hidden">
-                <div class="w-20 h-20 bg-red-500 rounded-full shadow-lg flex items-center justify-center text-2xl font-bold">AA</div>
+                <div class="col-span-4 text-2xl text-gray-500 text-center py-8">Loading user details...</div>
             </div>
         </div>
 
